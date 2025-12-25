@@ -1,5 +1,6 @@
 import utils
 
+@utils.execution_timer
 def main():
     """
     Main entry point for the clustering and anomaly detection program.
@@ -12,7 +13,6 @@ def main():
     
     # TODO: Implement k-means clustering
     # TODO: Implement anomaly detection
-    # TODO: Print execution time
     # TODO: Print outliers in original coordinates
     
     print(f"Loaded data from: {csv_filepath}")

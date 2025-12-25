@@ -1,3 +1,27 @@
+import time
+import functools
+
+
+def execution_timer(func):
+    """Decorator to measure and print execution time of a function.
+    
+    Args:
+        func: The function to be timed.
+    
+    Returns:
+        The wrapped function that prints execution time.
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"\n{'='*60}")
+        print(f"Execution time: {execution_time:.4f} seconds ({execution_time*1000:.2f} ms)")
+        print(f"{'='*60}")
+        return result
+    return wrapper
 
 
 def csv_reader(file_path):
