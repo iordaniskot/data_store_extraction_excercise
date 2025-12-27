@@ -26,8 +26,31 @@ def main():
     
     print(f"Ready for processing: {len(cleaned_data)} valid data points")
     
-    # TODO: Implement k-means clustering
-    # TODO: Implement anomaly detection
+    # ==========================================================================
+    # K-MEANS CLUSTERING
+    # ==========================================================================
+    # Configuration:
+    #   k: number of clusters (5 as specified in exercise instructions)
+    #   init_method: 'kmeans++' (recommended), 'random', or 'uniform'
+    #   max_iterations: maximum iterations before stopping
+    #   tolerance: convergence threshold for centroid movement
+    
+    K = 5  # Number of clusters - specified in exercise instructions
+    
+    kmeans_result = utils.kmeans(
+        cleaned_data,
+        k=K,
+        max_iterations=100,
+        tolerance=1e-6,
+        init_method='kmeans++',
+        random_seed=42  # For reproducibility
+    )
+    
+    centroids = kmeans_result['centroids']
+    assignments = kmeans_result['assignments']
+    clusters = kmeans_result['clusters']
+    
+    # TODO: Implement anomaly detection using clustering results
     # TODO: Print outliers in original coordinates
     # Note: Use original_data or denormalize_point() to get original coordinates
 

@@ -250,6 +250,323 @@ def denormalize_point(point, normalization_params):
     }
 
 
+# =============================================================================
+# K-MEANS CLUSTERING IMPLEMENTATION
+# =============================================================================
+
+def euclidean_distance(point1, point2):
+    """Computes the Euclidean distance between two 2D points.
+    
+    Args:
+        point1 (dict): First point with 'x' and 'y' keys.
+        point2 (dict): Second point with 'x' and 'y' keys.
+    
+    Returns:
+        float: Euclidean distance between the two points.
+    """
+    import math
+    return math.sqrt((point1['x'] - point2['x'])**2 + (point1['y'] - point2['y'])**2)
+
+
+def initialize_centroids(data, k, method='random'):
+    """Initializes k centroids for k-means clustering.
+    
+    Args:
+        data (list): List of data points with 'x' and 'y' keys.
+        k (int): Number of clusters.
+        method (str): Initialization method:
+            - 'random': Randomly select k points from data
+            - 'kmeans++': K-means++ initialization for better convergence
+            - 'uniform': Uniformly distributed across data range
+    
+    Returns:
+        list: List of k centroid points.
+    """
+    import random
+    
+    if k > len(data):
+        raise ValueError(f"k ({k}) cannot be greater than number of data points ({len(data)})")
+    
+    if method == 'random':
+        # Randomly select k unique points as initial centroids
+        selected = random.sample(data, k)
+        return [{'x': p['x'], 'y': p['y']} for p in selected]
+    
+    elif method == 'kmeans++':
+        # K-means++ initialization: select centroids with probability
+        # proportional to distance squared from nearest existing centroid
+        centroids = []
+        
+        # First centroid: random
+        first = random.choice(data)
+        centroids.append({'x': first['x'], 'y': first['y']})
+        
+        for _ in range(1, k):
+            distances = []
+            for point in data:
+                # Find minimum distance to existing centroids
+                min_dist = min(euclidean_distance(point, c) for c in centroids)
+                distances.append(min_dist ** 2)
+            
+            # Select next centroid with probability proportional to distance²
+            total_dist = sum(distances)
+            if total_dist == 0:
+                # All points are at centroid positions, select random
+                next_idx = random.randint(0, len(data) - 1)
+            else:
+                probabilities = [d / total_dist for d in distances]
+                next_idx = random.choices(range(len(data)), weights=probabilities, k=1)[0]
+            
+            centroids.append({'x': data[next_idx]['x'], 'y': data[next_idx]['y']})
+        
+        return centroids
+    
+    elif method == 'uniform':
+        # Uniformly distribute centroids across data range
+        x_values = [p['x'] for p in data]
+        y_values = [p['y'] for p in data]
+        x_min, x_max = min(x_values), max(x_values)
+        y_min, y_max = min(y_values), max(y_values)
+        
+        centroids = []
+        for i in range(k):
+            x = x_min + (x_max - x_min) * (i + 0.5) / k
+            y = y_min + (y_max - y_min) * random.random()
+            centroids.append({'x': x, 'y': y})
+        
+        return centroids
+    
+    else:
+        raise ValueError(f"Unknown initialization method: {method}")
+
+
+def assign_clusters(data, centroids):
+    """Assigns each data point to the nearest centroid.
+    
+    Args:
+        data (list): List of data points.
+        centroids (list): List of centroid points.
+    
+    Returns:
+        list: List of cluster assignments (indices into centroids list).
+    """
+    assignments = []
+    for point in data:
+        distances = [euclidean_distance(point, c) for c in centroids]
+        nearest_cluster = distances.index(min(distances))
+        assignments.append(nearest_cluster)
+    return assignments
+
+
+def compute_centroids(data, assignments, k):
+    """Computes new centroids as the mean of assigned points.
+    
+    Args:
+        data (list): List of data points.
+        assignments (list): Cluster assignments for each point.
+        k (int): Number of clusters.
+    
+    Returns:
+        list: List of new centroid points.
+    """
+    new_centroids = []
+    
+    for cluster_id in range(k):
+        # Get all points assigned to this cluster
+        cluster_points = [data[i] for i in range(len(data)) if assignments[i] == cluster_id]
+        
+        if cluster_points:
+            # Compute mean
+            mean_x = sum(p['x'] for p in cluster_points) / len(cluster_points)
+            mean_y = sum(p['y'] for p in cluster_points) / len(cluster_points)
+            new_centroids.append({'x': mean_x, 'y': mean_y})
+        else:
+            # Empty cluster: keep old centroid or reinitialize randomly
+            # Here we keep a placeholder that will be handled
+            new_centroids.append({'x': 0, 'y': 0})
+    
+    return new_centroids
+
+
+def has_converged(old_centroids, new_centroids, tolerance=1e-6):
+    """Checks if centroids have converged.
+    
+    Args:
+        old_centroids (list): Previous centroid positions.
+        new_centroids (list): New centroid positions.
+        tolerance (float): Maximum allowed movement for convergence.
+    
+    Returns:
+        bool: True if converged, False otherwise.
+    """
+    for old, new in zip(old_centroids, new_centroids):
+        if euclidean_distance(old, new) > tolerance:
+            return False
+    return True
+
+
+def kmeans(data, k, max_iterations=100, tolerance=1e-6, init_method='kmeans++', random_seed=None):
+    """Performs k-means clustering on 2D data.
+    
+    Algorithm:
+    1. Initialize k centroids using specified method
+    2. Assign each point to the nearest centroid
+    3. Recompute centroids as mean of assigned points
+    4. Repeat until convergence or max iterations reached
+    
+    Args:
+        data (list): List of data points with 'x' and 'y' keys.
+        k (int): Number of clusters.
+        max_iterations (int): Maximum number of iterations (default: 100).
+        tolerance (float): Convergence tolerance for centroid movement (default: 1e-6).
+        init_method (str): Centroid initialization method: 'random', 'kmeans++', 'uniform'.
+        random_seed (int): Random seed for reproducibility (default: None).
+    
+    Returns:
+        dict: Dictionary containing:
+            - 'centroids': Final centroid positions
+            - 'assignments': Cluster assignment for each data point
+            - 'clusters': List of lists, each containing points in that cluster
+            - 'iterations': Number of iterations performed
+            - 'converged': Whether algorithm converged
+            - 'inertia': Sum of squared distances to nearest centroid (SSE)
+    """
+    import random
+    
+    if random_seed is not None:
+        random.seed(random_seed)
+    
+    if len(data) == 0:
+        raise ValueError("Cannot perform k-means on empty dataset")
+    
+    if k <= 0:
+        raise ValueError(f"k must be positive, got {k}")
+    
+    # Step 1: Initialize centroids
+    centroids = initialize_centroids(data, k, method=init_method)
+    
+    iterations = 0
+    converged = False
+    
+    print(f"\n{'='*60}")
+    print(f"K-Means Clustering")
+    print(f"  k = {k}")
+    print(f"  Initialization: {init_method}")
+    print(f"  Max iterations: {max_iterations}")
+    print(f"  Tolerance: {tolerance}")
+    print(f"{'='*60}")
+    
+    # Steps 2-4: Iterate until convergence
+    for iteration in range(max_iterations):
+        iterations = iteration + 1
+        
+        # Assign points to nearest centroid
+        assignments = assign_clusters(data, centroids)
+        
+        # Compute new centroids
+        new_centroids = compute_centroids(data, assignments, k)
+        
+        # Check for convergence
+        if has_converged(centroids, new_centroids, tolerance):
+            converged = True
+            centroids = new_centroids
+            break
+        
+        centroids = new_centroids
+    
+    # Final assignment
+    assignments = assign_clusters(data, centroids)
+    
+    # Build cluster lists
+    clusters = [[] for _ in range(k)]
+    for idx, cluster_id in enumerate(assignments):
+        clusters[cluster_id].append({
+            'point': data[idx],
+            'index': idx
+        })
+    
+    # Compute inertia (sum of squared distances to centroid)
+    inertia = 0
+    for idx, point in enumerate(data):
+        cluster_id = assignments[idx]
+        inertia += euclidean_distance(point, centroids[cluster_id]) ** 2
+    
+    # Print results summary
+    print(f"\nResults:")
+    print(f"  Converged: {converged}")
+    print(f"  Iterations: {iterations}")
+    print(f"  Inertia (SSE): {inertia:.4f}")
+    print(f"\nCluster sizes:")
+    for i, cluster in enumerate(clusters):
+        print(f"  Cluster {i}: {len(cluster)} points")
+    print(f"{'='*60}\n")
+    
+    return {
+        'centroids': centroids,
+        'assignments': assignments,
+        'clusters': clusters,
+        'iterations': iterations,
+        'converged': converged,
+        'inertia': inertia,
+        'k': k
+    }
+
+
+def find_optimal_k(data, k_range=range(2, 11), method='elbow'):
+    """Finds the optimal number of clusters using various methods.
+    
+    Args:
+        data (list): List of data points.
+        k_range (range): Range of k values to test.
+        method (str): Method to use:
+            - 'elbow': Elbow method using inertia
+            - 'silhouette': Silhouette score (not implemented yet)
+    
+    Returns:
+        dict: Dictionary containing analysis results.
+    """
+    print(f"\n{'='*60}")
+    print(f"Finding Optimal k (method: {method})")
+    print(f"Testing k values: {list(k_range)}")
+    print(f"{'='*60}")
+    
+    results = []
+    
+    for k in k_range:
+        result = kmeans(data, k, random_seed=42)
+        results.append({
+            'k': k,
+            'inertia': result['inertia'],
+            'converged': result['converged'],
+            'iterations': result['iterations']
+        })
+        print(f"  k={k}: inertia={result['inertia']:.2f}")
+    
+    # For elbow method, suggest k where rate of decrease slows
+    if method == 'elbow' and len(results) >= 3:
+        # Compute rate of change
+        deltas = []
+        for i in range(1, len(results)):
+            delta = results[i-1]['inertia'] - results[i]['inertia']
+            deltas.append(delta)
+        
+        # Find "elbow" - where delta decreases significantly
+        # Simple heuristic: largest decrease in delta
+        if len(deltas) >= 2:
+            delta_changes = [deltas[i-1] - deltas[i] for i in range(1, len(deltas))]
+            best_idx = delta_changes.index(max(delta_changes)) + 1
+            suggested_k = results[best_idx]['k']
+        else:
+            suggested_k = results[1]['k']
+        
+        print(f"\nSuggested k (elbow method): {suggested_k}")
+    
+    return {
+        'results': results,
+        'suggested_k': suggested_k if method == 'elbow' else None
+    }
+
+
 def convert_to_csv(input_file, output_file=None):
     """Converts various file formats to CSV.
     
