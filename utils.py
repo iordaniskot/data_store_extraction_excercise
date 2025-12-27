@@ -567,6 +567,205 @@ def find_optimal_k(data, k_range=range(2, 11), method='elbow'):
     }
 
 
+# =============================================================================
+# OUTLIER DETECTION IMPLEMENTATION
+# =============================================================================
+
+def detect_outliers(data, kmeans_result, original_data=None, method='distance', threshold=None):
+    """Detects outliers/anomalies based on k-means clustering results.
+    
+    Detection methods:
+    1. 'distance': Points whose distance to their centroid exceeds a threshold
+       (default: mean + 2*std of all distances)
+    2. 'iqr': Points beyond 1.5*IQR of cluster distances
+    3. 'percentile': Top n% of points furthest from their centroids
+    4. 'small_cluster': Points in clusters with very few members
+    
+    The rationale for distance-based outlier detection:
+    - Points far from their assigned centroid don't fit well into any cluster
+    - These are likely anomalies or noise in the data
+    - Using mean + k*std allows adaptive threshold based on data distribution
+    
+    Args:
+        data (list): List of data points used in clustering.
+        kmeans_result (dict): Result from kmeans() function.
+        original_data (list): Original data before normalization (for output).
+                              If None, uses data directly.
+        method (str): Detection method - 'distance', 'iqr', 'percentile', 'small_cluster'.
+        threshold (float): Method-specific threshold:
+            - 'distance': number of standard deviations (default: 2.0)
+            - 'iqr': IQR multiplier (default: 1.5)
+            - 'percentile': percentile value 0-100 (default: 95, meaning top 5%)
+            - 'small_cluster': minimum cluster size (default: 5% of total points)
+    
+    Returns:
+        dict: Dictionary containing:
+            - 'outliers': List of outlier points with original coordinates
+            - 'outlier_indices': Indices of outliers in the data
+            - 'distances': Distance of each point to its centroid
+            - 'threshold_used': The threshold value used
+            - 'stats': Statistics about the detection
+    """
+    import math
+    
+    centroids = kmeans_result['centroids']
+    assignments = kmeans_result['assignments']
+    
+    # Use original_data for output if provided
+    if original_data is None:
+        original_data = data
+    
+    # Step 1: Compute distance of each point to its assigned centroid
+    distances = []
+    for idx, point in enumerate(data):
+        cluster_id = assignments[idx]
+        centroid = centroids[cluster_id]
+        dist = euclidean_distance(point, centroid)
+        distances.append({
+            'index': idx,
+            'distance': dist,
+            'cluster_id': cluster_id,
+            'point': point,
+            'original_point': original_data[idx]
+        })
+    
+    # Step 2: Apply detection method
+    outliers = []
+    threshold_used = threshold
+    
+    if method == 'distance':
+        # Distance-based: mean + k*std
+        dist_values = [d['distance'] for d in distances]
+        mean_dist = sum(dist_values) / len(dist_values)
+        variance = sum((d - mean_dist) ** 2 for d in dist_values) / len(dist_values)
+        std_dist = math.sqrt(variance)
+        
+        k_std = threshold if threshold is not None else 2.0
+        threshold_used = mean_dist + k_std * std_dist
+        
+        for d in distances:
+            if d['distance'] > threshold_used:
+                outliers.append(d)
+    
+    elif method == 'iqr':
+        # IQR-based outlier detection
+        dist_values = sorted([d['distance'] for d in distances])
+        n = len(dist_values)
+        q1 = dist_values[n // 4]
+        q3 = dist_values[3 * n // 4]
+        iqr = q3 - q1
+        
+        multiplier = threshold if threshold is not None else 1.5
+        threshold_used = q3 + multiplier * iqr
+        
+        for d in distances:
+            if d['distance'] > threshold_used:
+                outliers.append(d)
+    
+    elif method == 'percentile':
+        # Percentile-based: top n% furthest points
+        percentile = threshold if threshold is not None else 95
+        dist_values = sorted([d['distance'] for d in distances])
+        threshold_idx = int(len(dist_values) * percentile / 100)
+        threshold_used = dist_values[min(threshold_idx, len(dist_values) - 1)]
+        
+        for d in distances:
+            if d['distance'] >= threshold_used:
+                outliers.append(d)
+    
+    elif method == 'small_cluster':
+        # Points in very small clusters are outliers
+        clusters = kmeans_result['clusters']
+        min_size = threshold if threshold is not None else max(1, int(len(data) * 0.05))
+        threshold_used = min_size
+        
+        small_cluster_ids = [i for i, c in enumerate(clusters) if len(c) < min_size]
+        
+        for d in distances:
+            if d['cluster_id'] in small_cluster_ids:
+                outliers.append(d)
+    
+    else:
+        raise ValueError(f"Unknown detection method: {method}. Use 'distance', 'iqr', 'percentile', or 'small_cluster'")
+    
+    # Sort outliers by distance (most distant first)
+    outliers.sort(key=lambda x: x['distance'], reverse=True)
+    
+    # Step 3: Generate statistics
+    dist_values = [d['distance'] for d in distances]
+    stats = {
+        'total_points': len(data),
+        'outlier_count': len(outliers),
+        'outlier_percentage': len(outliers) / len(data) * 100 if data else 0,
+        'method': method,
+        'threshold': threshold_used,
+        'min_distance': min(dist_values),
+        'max_distance': max(dist_values),
+        'mean_distance': sum(dist_values) / len(dist_values),
+    }
+    
+    # Print results
+    print(f"\n{'='*60}")
+    print(f"Outlier Detection Results")
+    print(f"  Method: {method}")
+    print(f"  Threshold: {threshold_used:.4f}")
+    print(f"  Outliers found: {stats['outlier_count']} ({stats['outlier_percentage']:.2f}%)")
+    print(f"{'='*60}")
+    
+    return {
+        'outliers': outliers,
+        'outlier_indices': [o['index'] for o in outliers],
+        'distances': distances,
+        'threshold_used': threshold_used,
+        'stats': stats
+    }
+
+
+def print_outliers(outliers, show_all=True, max_display=50):
+    """Prints outliers with their original coordinates.
+    
+    Args:
+        outliers (list): List of outlier dictionaries from detect_outliers.
+        show_all (bool): Whether to show all outliers or limit display.
+        max_display (int): Maximum number of outliers to display if show_all=False.
+    """
+    if not outliers:
+        print("\nNo outliers detected.")
+        return
+    
+    print(f"\n{'='*60}")
+    print(f"DETECTED OUTLIERS (Original Coordinates)")
+    print(f"{'='*60}")
+    print(f"{'Index':<8} {'X':>15} {'Y':>15} {'Distance':>12} {'Cluster':>8}")
+    print(f"{'-'*60}")
+    
+    display_list = outliers if show_all else outliers[:max_display]
+    
+    for outlier in display_list:
+        orig = outlier['original_point']
+        print(f"{outlier['index']:<8} {orig['x']:>15.6f} {orig['y']:>15.6f} {outlier['distance']:>12.4f} {outlier['cluster_id']:>8}")
+    
+    if not show_all and len(outliers) > max_display:
+        print(f"... and {len(outliers) - max_display} more outliers")
+    
+    print(f"{'='*60}")
+    print(f"Total outliers: {len(outliers)}")
+    print(f"{'='*60}\n")
+
+
+def get_outlier_summary(outliers, original_data):
+    """Returns a summary of outliers suitable for output or further processing.
+    
+    Args:
+        outliers (list): List of outlier dictionaries from detect_outliers.
+        original_data (list): Original data points.
+    
+    Returns:
+        list: List of tuples (x, y) with original coordinates of outliers.
+    """
+    return [(o['original_point']['x'], o['original_point']['y']) for o in outliers]
+
+
 def convert_to_csv(input_file, output_file=None):
     """Converts various file formats to CSV.
     

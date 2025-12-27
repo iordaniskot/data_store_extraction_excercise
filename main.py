@@ -50,9 +50,41 @@ def main():
     assignments = kmeans_result['assignments']
     clusters = kmeans_result['clusters']
     
-    # TODO: Implement anomaly detection using clustering results
-    # TODO: Print outliers in original coordinates
-    # Note: Use original_data or denormalize_point() to get original coordinates
+    # ==========================================================================
+    # OUTLIER DETECTION
+    # ==========================================================================
+    # Detection rule: Distance-based outlier detection
+    # A point is considered an outlier if its distance to its assigned centroid
+    # exceeds mean_distance + threshold * std_distance
+    #
+    # Justification:
+    # - Points far from any cluster center don't fit the normal data distribution
+    # - Using mean + k*std provides an adaptive threshold based on data spread
+    # - threshold=2.0 corresponds to ~95% confidence interval (normal distribution)
+    #
+    # Alternative methods available:
+    # - 'iqr': IQR-based detection (robust to extreme outliers)
+    # - 'percentile': Top n% furthest points
+    # - 'small_cluster': Points in very small clusters
+    
+    outlier_result = utils.detect_outliers(
+        cleaned_data,
+        kmeans_result,
+        original_data=original_data,  # For printing original coordinates
+        method='distance',            # Detection method
+        threshold=2.0                 # Number of standard deviations
+    )
+    
+    # Print outliers with original coordinates
+    utils.print_outliers(outlier_result['outliers'], show_all=True)
+    
+    # Get summary for further processing if needed
+    outlier_coords = utils.get_outlier_summary(outlier_result['outliers'], original_data)
+    
+    print(f"\nProgram completed successfully.")
+    print(f"  Total data points: {len(cleaned_data)}")
+    print(f"  Clusters: {K}")
+    print(f"  Outliers detected: {outlier_result['stats']['outlier_count']}")
 
 
 if __name__ == "__main__":
