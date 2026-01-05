@@ -878,10 +878,9 @@ def plot_clusters(data, kmeans_result, outliers=None, title="K-Means Clustering"
     """
     Plot 2D K-Means clustering results.
 
-    - Points are colored according to their cluster.
+    - Points are colored according to their cluster (excluding red).
     - Centroids are shown as black X markers.
-    - Outliers KEEP the color of their cluster and are highlighted
-      with a circular marker and black edge.
+    - Outliers are shown in red and appear in the legend.
 
     Args:
         data (list[dict]): [{'x': float, 'y': float}, ...]
@@ -897,19 +896,33 @@ def plot_clusters(data, kmeans_result, outliers=None, title="K-Means Clustering"
 
     plt.figure(figsize=(8, 6))
 
+    # Predefined cluster colors (NO red)
+    cluster_colors = [
+        'tab:blue',
+        'tab:green',
+        'tab:purple',
+        'tab:orange',
+        'tab:brown',
+        'tab:pink',
+        'tab:cyan'
+    ]
+
     k = len(centroids_np)
 
-    # Plot normal cluster points
+    # Plot clusters
     for cluster_id in range(k):
         cluster_points = data_np[assignments == cluster_id]
         if len(cluster_points) == 0:
             continue
 
+        color = cluster_colors[cluster_id % len(cluster_colors)]
+
         plt.scatter(
             cluster_points[:, 0],
             cluster_points[:, 1],
-            label=f"Cluster {cluster_id}",
-            alpha=0.7
+            color=color,
+            alpha=0.7,
+            label=f"Cluster {cluster_id}"
         )
 
     # Plot centroids
@@ -922,28 +935,20 @@ def plot_clusters(data, kmeans_result, outliers=None, title="K-Means Clustering"
         label='Centroids'
     )
 
-    # Plot outliers with SAME cluster color, different marker
+    # Plot outliers in RED
     if outliers is not None and len(outliers) > 0:
-        for cluster_id in range(k):
-            outlier_points = [
-                data_np[o['index']]
-                for o in outliers
-                if o['cluster_id'] == cluster_id
-            ]
+        outlier_indices = [o['index'] for o in outliers]
+        outlier_points = data_np[outlier_indices]
 
-            if not outlier_points:
-                continue
-
-            outlier_points = np.array(outlier_points)
-
-            plt.scatter(
-                outlier_points[:, 0],
-                outlier_points[:, 1],
-                marker='o',
-                facecolors='none',
-                edgecolors='black',
-                s=120
-            )
+        plt.scatter(
+            outlier_points[:, 0],
+            outlier_points[:, 1],
+            c='red',
+            marker='o',
+            edgecolors='black',
+            s=120,
+            label='Outliers'
+        )
 
     plt.title(title)
     plt.xlabel("X")
