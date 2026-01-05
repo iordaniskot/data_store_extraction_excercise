@@ -36,6 +36,7 @@ A Python implementation of **k-means clustering** and **outlier detection** for 
 - **Optional normalization** with preservation of original coordinates
 - **Execution timing** for performance analysis
 - **Reproducible results** with random seed support
+- **Visualization** with `plot_clusters()` to display clustering results and outliers
 
 ---
 
@@ -48,6 +49,8 @@ A Python implementation of **k-means clustering** and **outlier detection** for 
 
 | Package | Required For |
 |---------|--------------|
+| `numpy` | Visualization (`plot_clusters`) |
+| `matplotlib` | Visualization (`plot_clusters`) |
 | `pandas` | Excel file conversion (.xlsx, .xls) |
 | `openpyxl` | Excel file conversion (.xlsx) |
 

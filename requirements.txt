@@ -1,6 +1,10 @@
 # Core requirements
 # None required for basic CSV clustering and outlier detection.
 
+# Optional: Visualization (plot_clusters)
+numpy>=1.20
+matplotlib>=3.5
+
 # Optional: Excel/JSON helpers and conversion
 pandas>=2.0
 openpyxl>=3.1
