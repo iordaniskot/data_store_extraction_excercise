@@ -86,6 +86,8 @@ def main():
     print(f"  Clusters: {K}")
     print(f"  Outliers detected: {outlier_result['stats']['outlier_count']}")
 
+    utils.plot_clusters(cleaned_data, kmeans_result, outliers=outlier_result['outliers'])
+
 
 if __name__ == "__main__":
     main()

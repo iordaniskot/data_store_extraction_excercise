@@ -1,5 +1,7 @@
 import time
 import functools
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def execution_timer(func):
@@ -871,3 +873,82 @@ def parse_args():
             # Try to proceed anyway - might be a CSV without .csv extension
 
     return filename
+
+def plot_clusters(data, kmeans_result, outliers=None, title="K-Means Clustering"):
+    """
+    Plot 2D K-Means clustering results.
+
+    - Points are colored according to their cluster.
+    - Centroids are shown as black X markers.
+    - Outliers KEEP the color of their cluster and are highlighted
+      with a circular marker and black edge.
+
+    Args:
+        data (list[dict]): [{'x': float, 'y': float}, ...]
+        kmeans_result (dict): Output of kmeans()
+        outliers (list[dict] | None): Output of detect_outliers()
+        title (str): Plot title
+    """
+
+    # Convert data to numpy array
+    data_np = np.array([[p['x'], p['y']] for p in data], dtype=float)
+    centroids_np = np.array([[c['x'], c['y']] for c in kmeans_result['centroids']], dtype=float)
+    assignments = np.array(kmeans_result['assignments'], dtype=int)
+
+    plt.figure(figsize=(8, 6))
+
+    k = len(centroids_np)
+
+    # Plot normal cluster points
+    for cluster_id in range(k):
+        cluster_points = data_np[assignments == cluster_id]
+        if len(cluster_points) == 0:
+            continue
+
+        plt.scatter(
+            cluster_points[:, 0],
+            cluster_points[:, 1],
+            label=f"Cluster {cluster_id}",
+            alpha=0.7
+        )
+
+    # Plot centroids
+    plt.scatter(
+        centroids_np[:, 0],
+        centroids_np[:, 1],
+        c='black',
+        marker='X',
+        s=200,
+        label='Centroids'
+    )
+
+    # Plot outliers with SAME cluster color, different marker
+    if outliers is not None and len(outliers) > 0:
+        for cluster_id in range(k):
+            outlier_points = [
+                data_np[o['index']]
+                for o in outliers
+                if o['cluster_id'] == cluster_id
+            ]
+
+            if not outlier_points:
+                continue
+
+            outlier_points = np.array(outlier_points)
+
+            plt.scatter(
+                outlier_points[:, 0],
+                outlier_points[:, 1],
+                marker='o',
+                facecolors='none',
+                edgecolors='black',
+                s=120
+            )
+
+    plt.title(title)
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
