@@ -1,0 +1,6 @@
+# Core requirements
+# None required for basic CSV clustering and outlier detection.
+
+# Optional: Excel/JSON helpers and conversion
+pandas>=2.0
+openpyxl>=3.1

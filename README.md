@@ -76,11 +76,13 @@ source .venv/bin/activate
 .venv\Scripts\activate
 ```
 
-### 3. (Optional) Install Dependencies for Excel Support
+### 3. (Optional) Install Dependencies via requirements.txt
 
 ```bash
-pip install pandas openpyxl
+pip install -r requirements.txt
 ```
+
+> The project has no mandatory external dependencies for basic CSV workflows. The `requirements.txt` file contains optional packages (`pandas`, `openpyxl`) used only for Excel conversion.
 
 ---
 
