@@ -232,7 +232,7 @@ def denormalize_point(point, normalization_params):
     
     Returns:
         dict: Point in original coordinate space.
-    """
+    """ 
     if normalization_params is None:
         return point
     
@@ -509,61 +509,6 @@ def kmeans(data, k, max_iterations=100, tolerance=1e-6, init_method='kmeans++', 
         'converged': converged,
         'inertia': inertia,
         'k': k
-    }
-
-
-def find_optimal_k(data, k_range=range(2, 11), method='elbow'):
-    """Finds the optimal number of clusters using various methods.
-    
-    Args:
-        data (list): List of data points.
-        k_range (range): Range of k values to test.
-        method (str): Method to use:
-            - 'elbow': Elbow method using inertia
-            - 'silhouette': Silhouette score (not implemented yet)
-    
-    Returns:
-        dict: Dictionary containing analysis results.
-    """
-    print(f"\n{'='*60}")
-    print(f"Finding Optimal k (method: {method})")
-    print(f"Testing k values: {list(k_range)}")
-    print(f"{'='*60}")
-    
-    results = []
-    
-    for k in k_range:
-        result = kmeans(data, k, random_seed=42)
-        results.append({
-            'k': k,
-            'inertia': result['inertia'],
-            'converged': result['converged'],
-            'iterations': result['iterations']
-        })
-        print(f"  k={k}: inertia={result['inertia']:.2f}")
-    
-    # For elbow method, suggest k where rate of decrease slows
-    if method == 'elbow' and len(results) >= 3:
-        # Compute rate of change
-        deltas = []
-        for i in range(1, len(results)):
-            delta = results[i-1]['inertia'] - results[i]['inertia']
-            deltas.append(delta)
-        
-        # Find "elbow" - where delta decreases significantly
-        # Simple heuristic: largest decrease in delta
-        if len(deltas) >= 2:
-            delta_changes = [deltas[i-1] - deltas[i] for i in range(1, len(deltas))]
-            best_idx = delta_changes.index(max(delta_changes)) + 1
-            suggested_k = results[best_idx]['k']
-        else:
-            suggested_k = results[1]['k']
-        
-        print(f"\nSuggested k (elbow method): {suggested_k}")
-    
-    return {
-        'results': results,
-        'suggested_k': suggested_k if method == 'elbow' else None
     }
 
 
